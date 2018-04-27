@@ -21,93 +21,42 @@
 */
 
 #include <iostream>
+
 #include <osg/io_utils>
 #include <osg/Geometry>
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
 #include <osg/Material>
 #include <osg/MatrixTransform>
+
+#include <osgAnimation/EaseMotion>//冗余标头，但文件定义的Motion类中的getValue()方法可以解释
+#include <osgAnimation/Sampler>//Sampler中的getValueAt()
+
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
+
 #include <osgGA/TrackballManipulator>
-#include <osgAnimation/Sampler>
 
-
-class AnimationTimeUpdateCallback :public osg::NodeCallback {
-public:
-	AnimationTimeUpdateCallback() ://无参构造函数
-		m_Sampler(new osgAnimation::Vec3CubicBezierSampler()),
-		m_bPlaying(false),
-		m_uiLastUpdate(0) {}
-
-	AnimationTimeUpdateCallback(//拷贝构造函数
-		const AnimationTimeUpdateCallback& atuc,
-		const osg::CopyOp& co = osg::CopyOp::SHALLOW_COPY
-	) :
-		osg::Object(atuc, co),
-		osg::NodeCallback(atuc, co),
-		m_Sampler(atuc.m_Sampler),
-		m_StartTime(atuc.m_StartTime),
-		m_CurrentTime(atuc.m_CurrentTime),
-		m_bPlaying(atuc.m_bPlaying),
-		m_uiLastUpdate(atuc.m_uiLastUpdate) {}
-
-	virtual void operator()(osg::Node* node, osg::NodeVisitor* nv) {
-		m_uiLastUpdate = nv->getFrameStamp()->getFrameNumber();
-		m_CurrentTime = osg::Timer::instance()->tick();
-
-		if (m_bPlaying&&m_Sampler.get() && m_Sampler->getKeyframeContainer()) {
-			osg::ref_ptr<osg::MatrixTransform> mt = dynamic_cast<osg::MatrixTransform*> (node);
-			if (mt) {
-				osg::Vec3 result;
-				float t = osg::Timer::instance()->delta_s(m_StartTime, m_CurrentTime);
-				float dur = m_Sampler->getEndTime() - m_Sampler->getStartTime();
-				t = fmod(t, dur);//取余
-				t += m_Sampler->getStartTime();
-				m_Sampler->getValueAt(t, result);
-				mt->setMatrix(osg::Matrix::translate(result));
-			}
-		}
-
-		traverse(node, nv);
-	}
-
-	void start() {
-		m_StartTime = osg::Timer::instance()->tick();
-		m_CurrentTime = m_StartTime;
-		m_bPlaying = true;
-	}
-
-	void stop() {
-		m_CurrentTime = m_StartTime;
-		m_bPlaying = false;
-	}
-
-protected:
-	osg::ref_ptr<osgAnimation::Vec3CubicBezierSampler> m_Sampler;
-	osg::Timer_t m_StartTime;
-	osg::Timer_t m_CurrentTime;
-	bool m_bPlaying;
-	unsigned int m_uiLastUpdate;
-};
+#include "AnimationTimeUpdateCallback.h"
 
 
 class MakePathTimeCallback :public AnimationTimeUpdateCallback {
 public:
 	MakePathTimeCallback(osg::Geode* geo) :
-		m_Geode(geo),
+		m_geode(geo),
 		m_fLastAdd(0.0f),
-		m_fAddSeconds(0.08f) {}
+		m_fAddSeconds(0.08f) {
+	}
 
 	virtual void operator()(osg::Node* node, osg::NodeVisitor* nv) {
-		float t = osg::Timer::instance()->delta_s(m_StartTime, m_CurrentTime);
+		float t = osg::Timer::instance()->delta_s(m_startTime, m_currentTime);
 
 		if (m_fLastAdd + m_fAddSeconds <= t&&t <= 8.0f) {
 			osg::Vec3 pos;
-			m_Sampler->getValueAt(t, pos);
+			m_sampler->getValueAt(t, pos);
 			
-			m_Geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(pos, 0.5f)));//
-			m_Geode->dirtyBound();
+			m_geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(pos, 0.5f)));//
+			m_geode->dirtyBound();
 
 			m_fLastAdd += m_fAddSeconds;
 		}
@@ -115,7 +64,7 @@ public:
 		AnimationTimeUpdateCallback::operator()(node, nv);//
 	}
 protected:
-	osg::ref_ptr<osg::Geode> m_Geode;
+	osg::ref_ptr<osg::Geode> m_geode;
 	float m_fLastAdd;
 	float m_fAddSeconds;
 };
@@ -123,8 +72,25 @@ protected:
 
 class MakePathDistanseCallback :public AnimationTimeUpdateCallback {
 protected:
-	osg::ref_ptr<osg::Geode> m_Geode;
-	osg::Vec3
+	osg::ref_ptr<osg::Geode> m_geode;
+	osg::Vec3 m_lastAdd;
+	float m_fThreshold;
+	unsigned int m_uiCount;
+public:
+	MakePathDistanseCallback(osg::Geode* geode) :
+		m_geode(geode),
+		m_fThreshold(0.5f),
+		m_uiCount(0) {
+	}
+
+	virtual void operator()(osg::Node* node, osg::NodeVisitor* nv) {
+		static bool countReported = false;
+		float t = osg::Timer::instance()->delta_s(m_startTime, m_currentTime);
+		osg::Vec3 pos;
+		m_sampler->getValueAt(t, pos);
+		osg::Vec3 distance = m_lastAdd - pos;
+
+	}
 };
 
 
