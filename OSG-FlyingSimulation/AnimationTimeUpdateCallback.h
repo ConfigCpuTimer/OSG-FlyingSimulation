@@ -1,4 +1,5 @@
 #pragma once
+
 #include <osg/NodeCallback>
 #include <osg/MatrixTransform>
 #include <osg/Timer>
@@ -21,7 +22,7 @@ public:
 
 	void stop();
 
-protected:
+public:
 	osg::ref_ptr<osgAnimation::Vec3CubicBezierSampler> m_sampler;
 	osg::Timer_t m_startTime;
 	osg::Timer_t m_currentTime;

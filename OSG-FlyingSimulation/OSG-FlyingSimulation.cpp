@@ -39,59 +39,72 @@
 
 #include "AnimationTimeUpdateCallback.h"
 
+#include "MakePathTimeCallback.h"
 
-class MakePathTimeCallback :public AnimationTimeUpdateCallback {
-public:
-	MakePathTimeCallback(osg::Geode* geo) :
-		m_geode(geo),
-		m_fLastAdd(0.0f),
-		m_fAddSeconds(0.08f) {
-	}
-
-	virtual void operator()(osg::Node* node, osg::NodeVisitor* nv) {
-		float t = osg::Timer::instance()->delta_s(m_startTime, m_currentTime);
-
-		if (m_fLastAdd + m_fAddSeconds <= t&&t <= 8.0f) {
-			osg::Vec3 pos;
-			m_sampler->getValueAt(t, pos);
-			
-			m_geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(pos, 0.5f)));//
-			m_geode->dirtyBound();
-
-			m_fLastAdd += m_fAddSeconds;
-		}
-
-		AnimationTimeUpdateCallback::operator()(node, nv);//
-	}
-protected:
-	osg::ref_ptr<osg::Geode> m_geode;
-	float m_fLastAdd;
-	float m_fAddSeconds;
-};
+#include "MakePathDistanseCallback.h"
 
 
-class MakePathDistanseCallback :public AnimationTimeUpdateCallback {
-protected:
-	osg::ref_ptr<osg::Geode> m_geode;
-	osg::Vec3 m_lastAdd;
-	float m_fThreshold;
-	unsigned int m_uiCount;
-public:
-	MakePathDistanseCallback(osg::Geode* geode) :
-		m_geode(geode),
-		m_fThreshold(0.5f),
-		m_uiCount(0) {
-	}
+osg::MatrixTransform* setupAnimtkNode(osg::Geode* staticGeode)
+{
+	osg::Vec3 v[5];
 
-	virtual void operator()(osg::Node* node, osg::NodeVisitor* nv) {
-		static bool countReported = false;
-		float t = osg::Timer::instance()->delta_s(m_startTime, m_currentTime);
-		osg::Vec3 pos;
-		m_sampler->getValueAt(t, pos);
-		osg::Vec3 distance = m_lastAdd - pos;
+	v[0] = osg::Vec3(0, 0, 0);
+	v[1] = osg::Vec3(20, 40, 60);
+	v[2] = osg::Vec3(40, 60, 20);
+	v[3] = osg::Vec3(60, 20, 40);
+	v[4] = osg::Vec3(0, 0, 0);
 
-	}
-};
+	osg::ref_ptr<osg::MatrixTransform> node = new osg::MatrixTransform();
+	//osg::MatrixTransform* node = new osg::MatrixTransform();
+	
+	osg::ref_ptr<AnimationTimeUpdateCallback> callback = new MakePathDistanseCallback(staticGeode);
+	//AnimationTimeUpdateCallback* callback = new MakePathDistanceCallback(staticGeode);
+	
+	osg::ref_ptr<osgAnimation::Vec3CubicBezierKeyframeContainer> keys = callback->m_sampler->getOrCreateKeyframeContainer();
+	//osgAnimation::Vec3CubicBezierKeyframeContainer* keys = callback->m_sampler->getOrCreateKeyframeContainer();
+
+	keys->push_back(osgAnimation::Vec3CubicBezierKeyframe(0, osgAnimation::Vec3CubicBezier(
+		v[0],
+		v[0] + (v[0] - v[3]),
+		v[1] - (v[1] - v[0])
+	)));
+
+	keys->push_back(osgAnimation::Vec3CubicBezierKeyframe(2, osgAnimation::Vec3CubicBezier(
+		v[1],
+		v[1] + (v[1] - v[0]),
+		v[2] - (v[2] - v[1])
+	)));
+
+	keys->push_back(osgAnimation::Vec3CubicBezierKeyframe(4, osgAnimation::Vec3CubicBezier(
+		v[2],
+		v[2] + (v[2] - v[1]),
+		v[3] - (v[3] - v[2])
+	)));
+
+	keys->push_back(osgAnimation::Vec3CubicBezierKeyframe(6, osgAnimation::Vec3CubicBezier(
+		v[3],
+		v[3] + (v[3] - v[2]),
+		v[4] - (v[4] - v[3])
+	)));
+
+	keys->push_back(osgAnimation::Vec3CubicBezierKeyframe(8, osgAnimation::Vec3CubicBezier(
+		v[4],
+		v[4] + (v[4] - v[3]),
+		v[0] - (v[0] - v[4])
+	)));
+
+	callback->start();
+	node->setUpdateCallback(callback);
+
+	osg::Geode* geode = new osg::Geode();
+
+	//geode->setStateSet(setupStateSet());
+	geode->addDrawable(new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0.0f, 0.0f, 0.0f), 2)));
+
+	node->addChild(geode);
+
+	return node;
+}
 
 
 int _tmain(int argc, char** argv)
@@ -109,7 +122,7 @@ int _tmain(int argc, char** argv)
 	osg::Group* root = new osg::Group();
 	osg::Geode* geode = new osg::Geode();
 
-	geode->setStateSet(setupStateSet());
+	//geode->setStateSet(setupStateSet());
 
 	root->setInitialBound(osg::BoundingSphere(osg::Vec3(10, 0, 20), 50));
 	root->addChild(setupAnimtkNode(geode));
